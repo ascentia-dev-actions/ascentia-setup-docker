@@ -1,0 +1,50 @@
+inputs:
+  buildx:
+    description: 'Use buildx.'
+    required: false
+    default: 'false'
+  buildx_driver:
+    description: 'The buildx driver to use.'
+    required: false
+    default: 'docker-container'
+  buildpacks:
+    description: 'Use buildpacks.'
+    required: false
+    default: 'false'
+  docker_registry:
+    description: 'The Docker registry url.'
+    required: false
+    default: 'ghcr.io/${{ github.repository_owner }}'
+  docker_user:
+    description: 'The Docker username.'
+    required: false
+    default: '$'
+  docker_password:
+    description: 'The Docker password.'
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: 'composite'
+  steps:
+    - if: inputs.buildx == 'true'
+      uses: docker/setup-buildx-action@v2
+      with:
+        install: true
+        driver: ${{ inputs.buildx_driver }}
+    - if: inputs.buildpacks == 'true'
+      uses: buildpacks/github-actions/setup-pack@v4.9.1
+    - name: Log in to registry
+      run: |
+        docker login "${DOCKER_REGISTRY%%/*}" -u "$DOCKER_USER" --password-stdin <<<"$DOCKER_PASSWORD"
+      env:
+        DOCKER_REGISTRY: ${{ inputs.docker_registry }}
+        DOCKER_USER: ${{ inputs.docker_user }}
+        DOCKER_PASSWORD: ${{ inputs.docker_password }}
+      shell: bash
+    - uses: ascentia-dev-actions/ascentia-slug@v1
+    - name: Set docker environment variables
+      run: |
+        echo "DOCKER_REGISTRY=${{ inputs.docker_registry }}" >>"$GITHUB_ENV"
+        echo "DOCKER_TAG=${GITHUB_BUILD_TAG}" >>"$GITHUB_ENV"
+        echo "DOCKER_VERSION_LABEL=${GITHUB_SHA_SHORT}-${GITHUB_RUN_NUMBER}" >>"$GITHUB_ENV"
+      shell: bash
